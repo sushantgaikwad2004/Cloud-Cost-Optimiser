@@ -7,10 +7,14 @@ import { analyzeAwsData } from "../services/optimizer.js";
 import {
   applySimulatorAction,
   applyWebsiteActivity,
+  getTimeMachineFrames,
+  getWarRoomState,
   getSimulatorSnapshot,
   initializeSimulator,
   resetSimulator,
+  runWarRoomAutoHeal,
   simulatorActionsCatalog,
+  startWarRoomCrisis,
   websiteActivityCatalog
 } from "../services/simulatorState.js";
 
@@ -283,6 +287,78 @@ router.post("/website/activity", requireAuth, async (req, res, next) => {
       costDelta,
       simulator: snapshot.serviceOps,
       analysis
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/timemachine/frames", requireAuth, async (req, res, next) => {
+  try {
+    await ensureSimulator();
+    const limit = Number(req.query.limit || 45);
+    const frames = getTimeMachineFrames(limit);
+    res.json({ frames });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/war-room/state", requireAuth, async (req, res, next) => {
+  try {
+    await ensureSimulator();
+    const snapshot = getSimulatorSnapshot();
+    const analysis = analyzeAwsData(snapshot);
+    const warRoom = getWarRoomState();
+    res.json({
+      simulator: snapshot.serviceOps,
+      analysis,
+      warRoom
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/war-room/start", requireAuth, async (req, res, next) => {
+  try {
+    await ensureSimulator();
+    const { snapshot, warRoom } = startWarRoomCrisis({
+      actor: req.user.name || req.user.email
+    });
+
+    const analysis = analyzeAwsData(snapshot);
+    await saveReportIfMongoAvailable(analysis);
+    await broadcastAnalysisUpdate("war-room-start");
+
+    res.json({
+      message: "War room crisis simulation started.",
+      simulator: snapshot.serviceOps,
+      analysis,
+      warRoom
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/war-room/auto-heal", requireAuth, async (req, res, next) => {
+  try {
+    await ensureSimulator();
+    const { snapshot, warRoom, reportCard } = runWarRoomAutoHeal({
+      actor: req.user.name || req.user.email
+    });
+
+    const analysis = analyzeAwsData(snapshot);
+    await saveReportIfMongoAvailable(analysis);
+    await broadcastAnalysisUpdate("war-room-auto-heal");
+
+    res.json({
+      message: "Auto-heal executed and platform stabilized.",
+      simulator: snapshot.serviceOps,
+      analysis,
+      warRoom,
+      reportCard
     });
   } catch (error) {
     next(error);

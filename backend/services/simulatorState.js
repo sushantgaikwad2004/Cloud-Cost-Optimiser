@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 const roundTo2 = (value) => Number(value.toFixed(2));
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const deepClone = (value) => JSON.parse(JSON.stringify(value));
+const nowIso = () => new Date().toISOString();
 
 const servicesTemplate = [
   {
@@ -190,6 +191,94 @@ export const websiteActivityCatalog = [
   }
 ];
 
+const getServiceHealthSummary = (services = []) => {
+  const summary = services.reduce(
+    (acc, service) => {
+      acc.totalRequestsPerMin += Number(service.requestsPerMin || 0);
+      acc.avgLatencyMs += Number(service.latencyMs || 0);
+      acc.avgErrorRate += Number(service.errorRate || 0);
+      if (service.status === "Healthy") acc.healthy += 1;
+      if (service.status === "Degraded") acc.degraded += 1;
+      if (service.status === "Critical") acc.critical += 1;
+      return acc;
+    },
+    {
+      totalRequestsPerMin: 0,
+      avgLatencyMs: 0,
+      avgErrorRate: 0,
+      healthy: 0,
+      degraded: 0,
+      critical: 0
+    }
+  );
+
+  if (services.length > 0) {
+    summary.avgLatencyMs = roundTo2(summary.avgLatencyMs / services.length);
+    summary.avgErrorRate = roundTo2(summary.avgErrorRate / services.length);
+  }
+
+  summary.totalRequestsPerMin = roundTo2(summary.totalRequestsPerMin);
+  return summary;
+};
+
+const serviceRiskScore = (service) => {
+  const severityBoost = service.status === "Critical" ? 120 : service.status === "Degraded" ? 60 : 0;
+  return severityBoost + Number(service.errorRate || 0) * 24 + Number(service.latencyMs || 0) * 0.22;
+};
+
+const getWarRoomRootCause = (services = []) => {
+  if (!services.length) return "No service data available.";
+  const sorted = [...services].sort((a, b) => serviceRiskScore(b) - serviceRiskScore(a));
+  const top = sorted[0];
+  return `${top.name} showing high latency (${top.latencyMs}ms) and error rate (${top.errorRate}%).`;
+};
+
+const getBlastRadius = (services = []) =>
+  services
+    .filter((service) => service.status !== "Healthy")
+    .sort((a, b) => serviceRiskScore(b) - serviceRiskScore(a))
+    .slice(0, 4)
+    .map((service) => service.name);
+
+const estimateLossPerMinute = ({ totalMonthlyCost, summary, crisisMultiplier = 1 }) => {
+  const basePerMinute = totalMonthlyCost / 43200;
+  const pressure =
+    1 +
+    summary.critical * 0.95 +
+    summary.degraded * 0.35 +
+    summary.avgErrorRate * 0.2 +
+    summary.avgLatencyMs / 1400;
+  return roundTo2(basePerMinute * pressure * crisisMultiplier);
+};
+
+const buildReportCard = (warRoom) => {
+  const scoreBase =
+    100 -
+    warRoom.lossPerMin * 1.2 -
+    warRoom.revenueRiskPerMin * 0.1 +
+    (warRoom.moneySaved > 0 ? 16 : 0) +
+    (warRoom.resolutionSeconds > 0 ? Math.max(0, 80 - warRoom.resolutionSeconds / 2.5) : 0);
+  const score = Math.max(0, Math.min(100, Math.round(scoreBase)));
+  const grade = score >= 85 ? "A" : score >= 70 ? "B" : score >= 55 ? "C" : "Needs Improvement";
+  const nextStep =
+    score >= 80
+      ? "Automate low-risk optimization actions for repeated incidents."
+      : "Tune autoscaling thresholds and improve reserved coverage before next traffic event.";
+
+  return {
+    generatedAt: nowIso(),
+    score,
+    grade,
+    moneySaved: warRoom.moneySaved,
+    incidentId: warRoom.incidentId,
+    summary:
+      score >= 80
+        ? "Excellent crisis handling and stabilization."
+        : "Incident resolved but needs stronger preventive guardrails.",
+    nextStep
+  };
+};
+
 let baseSnapshot = null;
 let runtimeSnapshot = null;
 
@@ -206,7 +295,25 @@ const buildSimulatorState = () => ({
   scenario: "normal",
   services: deepClone(servicesTemplate),
   websiteMetrics: deepClone(websiteMetricsTemplate),
-  activityLog: []
+  activityLog: [],
+  timelineFrames: [],
+  warRoom: {
+    incidentId: null,
+    crisisActive: false,
+    startedAt: null,
+    resolvedAt: null,
+    baselineMonthlyCost: 0,
+    currentMonthlyCost: 0,
+    lossPerMin: 0,
+    revenueRiskPerMin: 0,
+    rootCause: "System stable.",
+    blastRadius: [],
+    priorityAction: "Monitor platform baseline.",
+    eta: "No active incident",
+    moneySaved: 0,
+    resolutionSeconds: 0,
+    reportCard: null
+  }
 });
 
 const normalizeService = (service) => {
@@ -417,6 +524,58 @@ const applyMetricsDelta = (delta = {}, volume = 1) => {
   normalizeWebsiteMetrics();
 };
 
+const updateWarRoomSnapshot = () => {
+  const warRoom = runtimeSnapshot.serviceOps.warRoom;
+  const services = runtimeSnapshot.serviceOps.services;
+  const summary = getServiceHealthSummary(services);
+  const currentMonthlyCost = getTotalMonthlyCost(runtimeSnapshot);
+  const crisisMultiplier = warRoom.crisisActive ? 1.7 : 1;
+  const lossPerMin = estimateLossPerMinute({
+    totalMonthlyCost: currentMonthlyCost,
+    summary,
+    crisisMultiplier
+  });
+
+  warRoom.currentMonthlyCost = currentMonthlyCost;
+  warRoom.lossPerMin = lossPerMin;
+  warRoom.revenueRiskPerMin = roundTo2(lossPerMin * 11.5);
+  warRoom.rootCause = getWarRoomRootCause(services);
+  warRoom.blastRadius = getBlastRadius(services);
+
+  if (warRoom.crisisActive) {
+    warRoom.priorityAction = "Run Auto-Heal and apply emergency scaling.";
+    warRoom.eta = "2-4 mins";
+  } else if (warRoom.resolvedAt) {
+    warRoom.priorityAction = "Incident resolved. Observe for recurrence.";
+    warRoom.eta = "Resolved";
+  }
+};
+
+const pushTimelineFrame = (trigger, meta = {}) => {
+  const services = runtimeSnapshot.serviceOps.services;
+  const summary = getServiceHealthSummary(services);
+  const frame = {
+    id: `frame-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+    timestamp: nowIso(),
+    trigger,
+    scenario: runtimeSnapshot.serviceOps.scenario,
+    totalMonthlyCost: getTotalMonthlyCost(runtimeSnapshot),
+    activeUsers: runtimeSnapshot.serviceOps.websiteMetrics.activeUsers,
+    pageViews: runtimeSnapshot.serviceOps.websiteMetrics.pageViews,
+    serviceSummary: {
+      healthy: summary.healthy,
+      degraded: summary.degraded,
+      critical: summary.critical,
+      avgLatencyMs: summary.avgLatencyMs,
+      avgErrorRate: summary.avgErrorRate
+    },
+    meta
+  };
+
+  runtimeSnapshot.serviceOps.timelineFrames.unshift(frame);
+  runtimeSnapshot.serviceOps.timelineFrames = runtimeSnapshot.serviceOps.timelineFrames.slice(0, 120);
+};
+
 const pushActivity = ({
   actionType,
   intensity,
@@ -467,6 +626,12 @@ const executeActionCore = ({ actionType, intensity = 1, actor = "Demo User", sou
     meta
   });
 
+  updateWarRoomSnapshot();
+  pushTimelineFrame(label || actionLabelMap[actionType] || actionType, {
+    source,
+    actionType
+  });
+
   return {
     snapshot: getSimulatorSnapshot(),
     costDelta
@@ -483,6 +648,8 @@ export const initializeSimulator = async (samplePath) => {
     serviceOps: buildSimulatorState()
   };
   runtimeSnapshot = deepClone(baseSnapshot);
+  updateWarRoomSnapshot();
+  pushTimelineFrame("Baseline Snapshot", { source: "system" });
 };
 
 export const getSimulatorSnapshot = () => {
@@ -493,6 +660,8 @@ export const getSimulatorSnapshot = () => {
 export const resetSimulator = () => {
   ensureRuntime();
   runtimeSnapshot = deepClone(baseSnapshot);
+  updateWarRoomSnapshot();
+  pushTimelineFrame("Simulator Reset", { source: "system" });
   return getSimulatorSnapshot();
 };
 
@@ -503,6 +672,101 @@ export const applySimulatorAction = ({ actionType, intensity = 1, actor = "Demo 
     actor,
     source: "simulator-lab"
   });
+
+export const startWarRoomCrisis = ({ actor = "War Room Commander" }) => {
+  ensureRuntime();
+  const warRoom = runtimeSnapshot.serviceOps.warRoom;
+
+  if (!warRoom.crisisActive) {
+    warRoom.incidentId = `INC-${Date.now()}`;
+    warRoom.startedAt = nowIso();
+    warRoom.resolvedAt = null;
+    warRoom.reportCard = null;
+    warRoom.moneySaved = 0;
+    warRoom.resolutionSeconds = 0;
+    warRoom.baselineMonthlyCost = getTotalMonthlyCost(runtimeSnapshot);
+  }
+
+  executeActionCore({
+    actionType: "INCIDENT_MODE",
+    intensity: 4,
+    actor,
+    source: "war-room",
+    label: "Start Flash Sale Crisis"
+  });
+
+  executeActionCore({
+    actionType: "TRAFFIC_SPIKE",
+    intensity: 3,
+    actor,
+    source: "war-room",
+    label: "Traffic Escalation Wave"
+  });
+
+  warRoom.crisisActive = true;
+  warRoom.priorityAction = "Run Auto-Heal and apply emergency scaling.";
+  warRoom.eta = "2-4 mins";
+  updateWarRoomSnapshot();
+  pushTimelineFrame("War Room Crisis Started", { incidentId: warRoom.incidentId, source: "war-room" });
+
+  return {
+    snapshot: getSimulatorSnapshot(),
+    warRoom: deepClone(warRoom)
+  };
+};
+
+export const runWarRoomAutoHeal = ({ actor = "War Room Commander" }) => {
+  ensureRuntime();
+  const warRoom = runtimeSnapshot.serviceOps.warRoom;
+
+  executeActionCore({
+    actionType: "RUN_OPTIMIZATION",
+    intensity: 4,
+    actor,
+    source: "war-room",
+    label: "Auto-Heal Wave 1"
+  });
+
+  executeActionCore({
+    actionType: "RUN_OPTIMIZATION",
+    intensity: 3,
+    actor,
+    source: "war-room",
+    label: "Auto-Heal Wave 2"
+  });
+
+  warRoom.crisisActive = false;
+  warRoom.resolvedAt = nowIso();
+  if (warRoom.startedAt) {
+    const started = new Date(warRoom.startedAt).getTime();
+    const ended = new Date(warRoom.resolvedAt).getTime();
+    warRoom.resolutionSeconds = Math.max(1, Math.round((ended - started) / 1000));
+  }
+
+  const rawSaving = warRoom.baselineMonthlyCost - getTotalMonthlyCost(runtimeSnapshot);
+  warRoom.moneySaved = roundTo2(Math.max(0, rawSaving + warRoom.lossPerMin * 2.4));
+  updateWarRoomSnapshot();
+  warRoom.reportCard = buildReportCard(warRoom);
+  pushTimelineFrame("War Room Auto-Heal Completed", { incidentId: warRoom.incidentId, source: "war-room" });
+
+  return {
+    snapshot: getSimulatorSnapshot(),
+    warRoom: deepClone(warRoom),
+    reportCard: deepClone(warRoom.reportCard)
+  };
+};
+
+export const getWarRoomState = () => {
+  ensureRuntime();
+  updateWarRoomSnapshot();
+  return deepClone(runtimeSnapshot.serviceOps.warRoom);
+};
+
+export const getTimeMachineFrames = (limit = 45) => {
+  ensureRuntime();
+  const normalizedLimit = clamp(Number(limit || 45), 5, 120);
+  return deepClone(runtimeSnapshot.serviceOps.timelineFrames.slice(0, normalizedLimit));
+};
 
 export const applyWebsiteActivity = ({ activityType, volume = 1, actor = "Website User", details = {} }) => {
   ensureRuntime();
