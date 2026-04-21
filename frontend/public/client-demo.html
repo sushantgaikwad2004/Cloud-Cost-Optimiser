@@ -1,0 +1,669 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Client Website Demo</title>
+    <style>
+      :root {
+        font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+        color: #13253d;
+        background: linear-gradient(170deg, #f5f9ff 0%, #eef4fb 100%);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+      }
+
+      .shell {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 16px;
+      }
+
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 10px;
+        margin-bottom: 12px;
+      }
+
+      .brand p {
+        margin: 0;
+      }
+
+      .brand .tag {
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: #0f5cae;
+        font-size: 0.72rem;
+      }
+
+      .brand h1 {
+        margin: 5px 0 0;
+        font-size: clamp(1.3rem, 2.5vw, 2rem);
+      }
+
+      .top-actions {
+        display: grid;
+        gap: 5px;
+        justify-items: end;
+      }
+
+      .status-pill {
+        display: inline-block;
+        padding: 4px 9px;
+        border-radius: 999px;
+        font-size: 0.79rem;
+        background: #eaf3ff;
+        color: #154c8a;
+      }
+
+      .dashboard-link {
+        text-decoration: none;
+        color: #fff;
+        background: linear-gradient(135deg, #0f6fd3, #1791d9);
+        border-radius: 10px;
+        padding: 8px 12px;
+        font-size: 0.86rem;
+      }
+
+      .card {
+        border: 1px solid #d6e5f6;
+        border-radius: 16px;
+        background: #fff;
+        box-shadow: 0 16px 34px rgba(17, 62, 124, 0.08);
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: 1.5fr 1fr;
+        gap: 12px;
+      }
+
+      .left-col,
+      .right-col {
+        display: grid;
+        gap: 12px;
+      }
+
+      .hero {
+        padding: 14px;
+      }
+
+      .hero p {
+        margin: 7px 0 0;
+        color: #375675;
+      }
+
+      .quick-grid {
+        margin-top: 12px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 8px;
+      }
+
+      .quick-item {
+        background: #f3f8ff;
+        border-radius: 10px;
+        padding: 9px;
+      }
+
+      .quick-item strong {
+        display: block;
+        font-size: 1rem;
+      }
+
+      .quick-item span {
+        font-size: 0.83rem;
+        color: #4d6481;
+      }
+
+      .products {
+        padding: 14px;
+      }
+
+      .products h2 {
+        margin: 0 0 10px;
+      }
+
+      .product-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 8px;
+      }
+
+      .product {
+        border: 1px solid #d6e7fa;
+        border-radius: 12px;
+        padding: 10px;
+      }
+
+      .product h3 {
+        margin: 0;
+        font-size: 0.98rem;
+      }
+
+      .product p {
+        margin: 5px 0;
+        color: #4f6780;
+        font-size: 0.86rem;
+      }
+
+      .product button,
+      .action-grid button,
+      .login-card button {
+        border: 0;
+        border-radius: 9px;
+        padding: 8px 10px;
+        background: linear-gradient(135deg, #0f73d6, #1a95dd);
+        color: #fff;
+        cursor: pointer;
+      }
+
+      .control {
+        padding: 14px;
+      }
+
+      .control h2 {
+        margin: 0 0 10px;
+      }
+
+      .control-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .control-row input {
+        width: min(220px, 100%);
+      }
+
+      .action-grid {
+        margin-top: 10px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 8px;
+      }
+
+      .action-grid button {
+        text-align: left;
+        min-height: 68px;
+        font-size: 0.84rem;
+      }
+
+      .health {
+        padding: 14px;
+      }
+
+      .health h2 {
+        margin: 0 0 10px;
+      }
+
+      .health ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+
+      .health li + li {
+        margin-top: 7px;
+      }
+
+      .advisor {
+        padding: 14px;
+      }
+
+      .advisor h2 {
+        margin: 0 0 10px;
+      }
+
+      .advisor-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .advisor-item {
+        border: 1px solid #d8e6f8;
+        border-radius: 11px;
+        padding: 10px;
+        background: #f9fcff;
+      }
+
+      .advisor-item header {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 5px;
+      }
+
+      .sev {
+        border-radius: 999px;
+        padding: 3px 8px;
+        font-size: 0.74rem;
+        font-weight: 600;
+      }
+
+      .sev.high {
+        color: #a31313;
+        background: #ffe4e4;
+      }
+
+      .sev.medium {
+        color: #8f5a00;
+        background: #fff0d0;
+      }
+
+      .sev.low {
+        color: #15603a;
+        background: #ddf8e8;
+      }
+
+      .feed {
+        padding: 14px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        padding: 8px 6px;
+        border-bottom: 1px solid #dce9f8;
+        text-align: left;
+        font-size: 0.82rem;
+      }
+
+      th {
+        color: #2f4f6f;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        font-size: 0.74rem;
+      }
+
+      .login-wrap {
+        display: none;
+      }
+
+      .login-wrap.active {
+        display: block;
+      }
+
+      .login-card {
+        max-width: 420px;
+        margin: 28px auto;
+        padding: 16px;
+      }
+
+      .login-card form {
+        display: grid;
+        gap: 10px;
+      }
+
+      .login-card input {
+        width: 100%;
+        border: 1px solid #bfd4ec;
+        border-radius: 9px;
+        padding: 8px 10px;
+      }
+
+      .app-wrap.hidden {
+        display: none;
+      }
+
+      .helper {
+        color: #4f6780;
+        font-size: 0.84rem;
+        margin-top: 6px;
+      }
+
+      @media (max-width: 900px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <section id="loginWrap" class="login-wrap">
+        <article class="card login-card">
+          <h2>Client Demo Login</h2>
+          <p>Sign in to simulate real user actions from this website page.</p>
+          <form id="loginForm">
+            <label>
+              Email
+              <input type="email" id="email" value="admin@beproject.com" required />
+            </label>
+            <label>
+              Password
+              <input type="password" id="password" value="admin123" required />
+            </label>
+            <button type="submit">Sign In</button>
+          </form>
+          <p id="loginError" class="helper"></p>
+        </article>
+      </section>
+
+      <section id="appWrap" class="app-wrap">
+        <header class="topbar">
+          <div class="brand">
+            <p class="tag">Client Website Simulation</p>
+            <h1>ShopSphere Live Demo</h1>
+            <p>Use this page like a real customer-facing site. Dashboard will update in real time.</p>
+          </div>
+          <div class="top-actions">
+            <span id="streamState" class="status-pill">Realtime: Offline</span>
+            <a href="/" target="_blank" class="dashboard-link" rel="noreferrer">Open FinOps Dashboard</a>
+          </div>
+        </header>
+
+        <div class="layout">
+          <div class="left-col">
+            <article class="card hero">
+              <h2>Welcome Back, Shopper</h2>
+              <p>Explore products, add to cart, place orders, and watch cloud impact live.</p>
+              <div class="quick-grid">
+                <div class="quick-item"><strong id="metricUsers">0</strong><span>Active Users</span></div>
+                <div class="quick-item"><strong id="metricViews">0</strong><span>Page Views</span></div>
+                <div class="quick-item"><strong id="metricOrders">0</strong><span>Orders Today</span></div>
+                <div class="quick-item"><strong id="metricCart">0</strong><span>Cart Adds</span></div>
+              </div>
+            </article>
+
+            <article class="card products">
+              <h2>Trending Products</h2>
+              <div class="product-grid">
+                <div class="product">
+                  <h3>Neo Earbuds</h3>
+                  <p>Immersive audio with noise cancellation.</p>
+                  <button data-activity="ADD_TO_CART">Add To Cart</button>
+                </div>
+                <div class="product">
+                  <h3>Pulse Smartwatch</h3>
+                  <p>Health tracking and all-day battery.</p>
+                  <button data-activity="PLACE_ORDER">Buy Now</button>
+                </div>
+                <div class="product">
+                  <h3>CloudCam 360</h3>
+                  <p>AI security camera with live stream.</p>
+                  <button data-activity="WATCH_PRODUCT_VIDEO">Watch Demo Video</button>
+                </div>
+              </div>
+            </article>
+
+            <article class="card control">
+              <h2>User Activity Controls</h2>
+              <div class="control-row">
+                <p>Activity Volume: <strong id="volumeText">2</strong></p>
+                <input id="volumeRange" type="range" min="1" max="5" value="2" />
+              </div>
+              <div class="action-grid">
+                <button data-activity="VISIT_HOME">Visit Homepage</button>
+                <button data-activity="SEARCH_PRODUCTS">Search Products</button>
+                <button data-activity="UPLOAD_PROFILE_IMAGE">Upload Profile Image</button>
+                <button data-activity="FLASH_SALE_EVENT">Run Flash Sale Event</button>
+                <button data-activity="ENABLE_AUTO_SCALING">Enable Auto-Scaling</button>
+              </div>
+              <p id="activityMessage" class="helper"></p>
+            </article>
+          </div>
+
+          <div class="right-col">
+            <article class="card health">
+              <h2>Website Health</h2>
+              <ul>
+                <li id="healthStatus">Status: -</li>
+                <li id="healthReq">Requests/min: -</li>
+                <li id="healthLatency">Latency: -</li>
+                <li id="healthError">Error Rate: -</li>
+              </ul>
+            </article>
+
+            <article class="card advisor">
+              <h2>Live Suggestions</h2>
+              <div id="advisorList" class="advisor-list"></div>
+            </article>
+
+            <article class="card feed">
+              <h2>Website Activity Feed</h2>
+              <div style="overflow-x: auto">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Time</th>
+                      <th>Action</th>
+                      <th>Volume</th>
+                      <th>Cost Delta</th>
+                    </tr>
+                  </thead>
+                  <tbody id="feedBody"></tbody>
+                </table>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      const API_BASE_URL = localStorage.getItem("cco_api_base_url") || "http://localhost:5000";
+      const TOKEN_KEY = "cco_demo_token";
+      const USER_KEY = "cco_demo_user";
+
+      let token = localStorage.getItem(TOKEN_KEY) || "";
+      let stream = null;
+
+      const loginWrap = document.getElementById("loginWrap");
+      const appWrap = document.getElementById("appWrap");
+      const loginForm = document.getElementById("loginForm");
+      const loginError = document.getElementById("loginError");
+      const streamState = document.getElementById("streamState");
+      const activityMessage = document.getElementById("activityMessage");
+      const volumeRange = document.getElementById("volumeRange");
+      const volumeText = document.getElementById("volumeText");
+
+      const showLogin = () => {
+        loginWrap.classList.add("active");
+        appWrap.classList.add("hidden");
+      };
+
+      const showApp = () => {
+        loginWrap.classList.remove("active");
+        appWrap.classList.remove("hidden");
+      };
+
+      const authHeaders = () => ({
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      });
+
+      const formatUSD = (value) =>
+        new Intl.NumberFormat("en-IN", {
+          style: "currency",
+          currency: "USD",
+          minimumFractionDigits: 2
+        }).format(Number(value || 0));
+
+      const setRealtimeState = (label) => {
+        streamState.textContent = `Realtime: ${label}`;
+      };
+
+      const renderAdvisor = (cards = []) => {
+        const holder = document.getElementById("advisorList");
+        holder.innerHTML = "";
+        cards.forEach((card) => {
+          const wrapper = document.createElement("article");
+          wrapper.className = "advisor-item";
+          wrapper.innerHTML = `
+            <header>
+              <strong>${card.title}</strong>
+              <span class="sev ${(card.severity || "Low").toLowerCase()}">${card.severity}</span>
+            </header>
+            <p>${card.recommendation}</p>
+          `;
+          holder.appendChild(wrapper);
+        });
+      };
+
+      const renderFeed = (events = []) => {
+        const tbody = document.getElementById("feedBody");
+        tbody.innerHTML = "";
+        events
+          .filter((item) => item.source === "website-demo")
+          .slice(0, 8)
+          .forEach((event) => {
+            const row = document.createElement("tr");
+            row.innerHTML = `
+              <td>${new Date(event.timestamp).toLocaleTimeString()}</td>
+              <td>${event.label}</td>
+              <td>${event.intensity}</td>
+              <td>${formatUSD(event.costDelta)}</td>
+            `;
+            tbody.appendChild(row);
+          });
+      };
+
+      const renderState = (analysis, simulator) => {
+        const metrics = simulator.websiteMetrics || {};
+        document.getElementById("metricUsers").textContent = metrics.activeUsers ?? 0;
+        document.getElementById("metricViews").textContent = metrics.pageViews ?? 0;
+        document.getElementById("metricOrders").textContent = metrics.ordersPlaced ?? 0;
+        document.getElementById("metricCart").textContent = metrics.cartAdds ?? 0;
+
+        const runtime = analysis.runtimeHealth || {};
+        document.getElementById("healthStatus").textContent = `Status: ${runtime.overall || "Unknown"}`;
+        document.getElementById("healthReq").textContent = `Requests/min: ${runtime.totalRequestsPerMin || 0}`;
+        document.getElementById("healthLatency").textContent = `Latency: ${runtime.avgLatencyMs || 0} ms`;
+        document.getElementById("healthError").textContent = `Error Rate: ${runtime.avgErrorRate || 0}%`;
+
+        renderAdvisor((analysis.websiteAdvisor && analysis.websiteAdvisor.cards) || []);
+        renderFeed(simulator.activityLog || []);
+      };
+
+      const fetchWebsiteState = async () => {
+        const response = await fetch(`${API_BASE_URL}/api/website/state`, {
+          headers: authHeaders()
+        });
+
+        if (response.status === 401) {
+          localStorage.removeItem(TOKEN_KEY);
+          localStorage.removeItem(USER_KEY);
+          token = "";
+          showLogin();
+          throw new Error("Session expired. Login again.");
+        }
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.message || "Could not fetch website state.");
+        }
+        renderState(data.analysis, data.simulator);
+      };
+
+      const runActivity = async (activityType) => {
+        activityMessage.textContent = "Applying activity...";
+        const volume = Number(volumeRange.value || 1);
+
+        const response = await fetch(`${API_BASE_URL}/api/website/activity`, {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({
+            activityType,
+            volume,
+            details: { channel: "client-demo-page" }
+          })
+        });
+        const result = await response.json();
+        if (!response.ok) {
+          activityMessage.textContent = result.message || "Action failed.";
+          return;
+        }
+
+        renderState(result.analysis, result.simulator);
+        activityMessage.textContent = `Activity recorded. Cost delta: ${formatUSD(result.costDelta)}`;
+      };
+
+      const connectStream = () => {
+        if (!token) return;
+        if (stream) stream.close();
+        stream = new EventSource(`${API_BASE_URL}/api/stream?token=${encodeURIComponent(token)}`);
+        setRealtimeState("Connecting");
+
+        stream.addEventListener("connected", () => setRealtimeState("Live"));
+        stream.addEventListener("analysis-update", (event) => {
+          try {
+            const payload = JSON.parse(event.data);
+            renderState(payload.analysis, payload.simulator);
+            setRealtimeState("Live");
+          } catch {
+            setRealtimeState("Data Error");
+          }
+        });
+        stream.onerror = () => setRealtimeState("Reconnecting");
+      };
+
+      const login = async (email, password) => {
+        const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || "Login failed");
+        token = data.token;
+        localStorage.setItem(TOKEN_KEY, data.token);
+        localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+      };
+
+      const bootstrap = async () => {
+        try {
+          if (!token) {
+            showLogin();
+            return;
+          }
+
+          showApp();
+          await fetchWebsiteState();
+          connectStream();
+        } catch (error) {
+          showLogin();
+          loginError.textContent = error.message || "Unable to load website demo.";
+        }
+      };
+
+      loginForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        loginError.textContent = "";
+        try {
+          const email = document.getElementById("email").value;
+          const password = document.getElementById("password").value;
+          await login(email, password);
+          showApp();
+          await fetchWebsiteState();
+          connectStream();
+        } catch (error) {
+          loginError.textContent = error.message || "Login error.";
+        }
+      });
+
+      volumeRange.addEventListener("input", () => {
+        volumeText.textContent = volumeRange.value;
+      });
+
+      document.querySelectorAll("[data-activity]").forEach((button) => {
+        button.addEventListener("click", () => runActivity(button.dataset.activity));
+      });
+
+      bootstrap();
+    </script>
+  </body>
+</html>
+

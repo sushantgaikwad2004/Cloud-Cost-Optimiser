@@ -1,0 +1,73 @@
+{
+  "projectName": "BE Platform",
+  "environment": "production",
+  "resources": [
+    {
+      "id": "ec2-1",
+      "name": "api-server-01",
+      "type": "EC2",
+      "region": "ap-south-1",
+      "monthlyCost": 240,
+      "avgCpuUtilization": 18,
+      "idleDays": 0,
+      "reservedCoverage": 20,
+      "rightSized": false,
+      "networkOutGb": 620
+    },
+    {
+      "id": "ec2-2",
+      "name": "worker-analytics",
+      "type": "EC2",
+      "region": "ap-south-1",
+      "monthlyCost": 190,
+      "avgCpuUtilization": 9,
+      "idleDays": 11,
+      "reservedCoverage": 0,
+      "rightSized": false,
+      "networkOutGb": 120
+    },
+    {
+      "id": "rds-1",
+      "name": "orders-db",
+      "type": "RDS",
+      "region": "ap-south-1",
+      "monthlyCost": 360,
+      "avgCpuUtilization": 42,
+      "idleDays": 0,
+      "reservedCoverage": 80,
+      "rightSized": true,
+      "networkOutGb": 240
+    },
+    {
+      "id": "ebs-1",
+      "name": "legacy-volume",
+      "type": "EBS",
+      "region": "ap-south-1",
+      "monthlyCost": 95,
+      "storageUtilization": 22,
+      "idleDays": 15,
+      "rightSized": false
+    },
+    {
+      "id": "s3-1",
+      "name": "app-logs-bucket",
+      "type": "S3",
+      "region": "ap-south-1",
+      "monthlyCost": 130,
+      "storageUtilization": 38,
+      "idleDays": 0,
+      "rightSized": true
+    },
+    {
+      "id": "cloudfront-1",
+      "name": "cdn-main",
+      "type": "CloudFront",
+      "region": "global",
+      "monthlyCost": 80,
+      "idleDays": 0,
+      "rightSized": true,
+      "networkOutGb": 1600
+    }
+  ]
+}
+
