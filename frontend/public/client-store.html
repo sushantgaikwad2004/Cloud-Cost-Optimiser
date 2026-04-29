@@ -103,8 +103,32 @@
     </div>
   </section>
 
+  <script src="/cco-runtime-config.js"></script>
   <script>
-    const API_BASE_URL = localStorage.getItem("cco_api_base_url") || "http://localhost:5000";
+    const normalizeApiBase = (value = "") => {
+      const normalized = String(value || "").trim().replace(/\/+$/, "");
+      if (!normalized) return "";
+      if (normalized.startsWith("http://") || normalized.startsWith("https://")) return normalized;
+      if (normalized.startsWith("/")) return normalized;
+      return "";
+    };
+    const queryApiBase = normalizeApiBase(new URLSearchParams(window.location.search).get("api"));
+    const storedApiBase = normalizeApiBase(localStorage.getItem("cco_api_base_url"));
+    const runtimeApiBase = normalizeApiBase(window.__CCO_RUNTIME__?.apiBaseUrl);
+    const fallbackApiBase =
+      window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+        ? "http://localhost:5000"
+        : "/api";
+    const API_BASE_URL = queryApiBase || storedApiBase || runtimeApiBase || fallbackApiBase;
+    if (queryApiBase) {
+      localStorage.setItem("cco_api_base_url", queryApiBase);
+    } else if (!storedApiBase && runtimeApiBase) {
+      localStorage.setItem("cco_api_base_url", runtimeApiBase);
+    }
+    const apiHelpText =
+      API_BASE_URL === "/api"
+        ? "Configure Vercel rewrite /api/* to your Render backend."
+        : `Check backend reachability: ${API_BASE_URL}`;
     const TOKEN_KEY = "cco_demo_token", USER_KEY = "cco_demo_user";
     let token = localStorage.getItem(TOKEN_KEY) || "", stream = null, cartCount = 0, cartValue = 0;
     const streamState = document.getElementById("streamState"), activityMessage = document.getElementById("activityMessage");
@@ -136,7 +160,12 @@
     const fetchState = async (allowRetry = true) => {
       const tokenReady = await ensureToken();
       if (!tokenReady) throw new Error("Unable to auto-login demo user. Please login in dashboard first.");
-      const res = await fetch(`${API_BASE_URL}/api/website/state`, { headers: authHeaders() });
+      let res;
+      try {
+        res = await fetch(`${API_BASE_URL}/api/website/state`, { headers: authHeaders() });
+      } catch {
+        throw new Error(`Cannot reach API. ${apiHelpText}`);
+      }
       if (res.status === 401 && allowRetry) {
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(USER_KEY);
@@ -147,8 +176,47 @@
       if (!res.ok) throw new Error(d.message || "Could not fetch website state.");
       renderState(d.analysis, d.simulator);
     };
-    const runActivity = async (activityType, details = {}) => { const tokenReady = await ensureToken(); if (!tokenReady) return toast("Cannot connect to backend."); toast("Applying user activity..."); const res = await fetch(`${API_BASE_URL}/api/website/activity`, { method: "POST", headers: authHeaders(), body: JSON.stringify({ activityType, volume: Number(volumeRange.value || 1), details: { channel: "client-storefront", ...details } }) }); const out = await parseResponse(res); if (!res.ok) return toast(out.message || "Action failed."); renderState(out.analysis, out.simulator); toast(`Action recorded. Cloud cost delta: ${formatUSD(out.costDelta)}`); };
-    const connectStream = async () => { const tokenReady = await ensureToken(); if (!tokenReady) return; if (stream) stream.close(); stream = new EventSource(`${API_BASE_URL}/api/stream?token=${encodeURIComponent(token)}`); setRealtime("Connecting"); stream.addEventListener("connected", () => setRealtime("Live")); stream.addEventListener("analysis-update", (ev) => { try { const payload = JSON.parse(ev.data); renderState(payload.analysis, payload.simulator); setRealtime("Live"); } catch { setRealtime("Data Error"); } }); stream.onerror = () => setRealtime("Reconnecting"); };
+    const runActivity = async (activityType, details = {}) => {
+      const tokenReady = await ensureToken();
+      if (!tokenReady) return toast(`Cannot connect to backend. ${apiHelpText}`);
+      toast("Applying user activity...");
+      let res;
+      try {
+        res = await fetch(`${API_BASE_URL}/api/website/activity`, {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({
+            activityType,
+            volume: Number(volumeRange.value || 1),
+            details: { channel: "client-storefront", ...details }
+          })
+        });
+      } catch {
+        return toast(`Request failed. ${apiHelpText}`);
+      }
+      const out = await parseResponse(res);
+      if (!res.ok) return toast(out.message || "Action failed.");
+      renderState(out.analysis, out.simulator);
+      toast(`Action recorded. Cloud cost delta: ${formatUSD(out.costDelta)}`);
+    };
+    const connectStream = async () => {
+      const tokenReady = await ensureToken();
+      if (!tokenReady) return;
+      if (stream) stream.close();
+      stream = new EventSource(`${API_BASE_URL}/api/stream?token=${encodeURIComponent(token)}`);
+      setRealtime("Connecting");
+      stream.addEventListener("connected", () => setRealtime("Live"));
+      stream.addEventListener("analysis-update", (ev) => {
+        try {
+          const payload = JSON.parse(ev.data);
+          renderState(payload.analysis, payload.simulator);
+          setRealtime("Live");
+        } catch {
+          setRealtime("Data Error");
+        }
+      });
+      stream.onerror = () => setRealtime("Reconnecting");
+    };
     volumeRange.addEventListener("input", () => volumeText.textContent = `${volumeRange.value}x`);
     searchForm.addEventListener("submit", async (e) => { e.preventDefault(); await runActivity("SEARCH_PRODUCTS", { query: searchInput.value || "general" }); });
     document.querySelectorAll("[data-activity]").forEach((btn) => { btn.addEventListener("click", async () => { const t = btn.dataset.activity; bumpCart(t, btn); await runActivity(t, { context: btn.closest(".item")?.dataset?.product || "storefront" }); }); });

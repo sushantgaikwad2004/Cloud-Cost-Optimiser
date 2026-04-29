@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "node scripts/write-runtime-config.mjs",
     "dev": "vite",
+    "prebuild": "node scripts/write-runtime-config.mjs",
     "build": "vite build",
     "preview": "vite preview"
   },

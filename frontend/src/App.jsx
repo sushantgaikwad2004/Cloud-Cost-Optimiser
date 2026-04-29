@@ -582,6 +582,7 @@ function App() {
     (analysis?.runtimeHealth?.criticalServices || 0) * 2 +
       (analysis?.runtimeHealth?.degradedServices || 0)
   );
+  const demoWebsiteUrl = `/client-store.html?api=${encodeURIComponent(API_BASE_URL)}`;
 
   const executeSimulatorAction = async (actionType) => {
     if (!session.token) return;
@@ -1374,7 +1375,7 @@ function App() {
                 </div>
                 <a
                   className="launch-link"
-                  href="/client-store.html"
+                  href={demoWebsiteUrl}
                   target="_blank"
                   rel="noreferrer"
                 >
@@ -1383,7 +1384,7 @@ function App() {
               </div>
               <iframe
                 title="Client Website Demo"
-                src="/client-store.html"
+                src={demoWebsiteUrl}
                 className="website-iframe"
               />
             </section>
