@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import mongoose from "mongoose";
 import AnalysisReport from "../models/AnalysisReport.js";
 import { analyzeAwsData } from "../services/optimizer.js";
+import { findUserByEmail, listUsers, registerUser, sanitizeUser } from "../services/userStore.js";
 import {
   applySimulatorAction,
   applyWebsiteActivity,
@@ -23,21 +24,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const samplePath = path.join(__dirname, "..", "data", "aws-sample.json");
 const streamClients = new Map();
-
-const demoUsers = [
-  {
-    email: "admin@beproject.com",
-    password: "admin123",
-    name: "Aarav Sharma",
-    role: "FinOps Lead"
-  },
-  {
-    email: "reviewer@beproject.com",
-    password: "review123",
-    name: "Nisha Verma",
-    role: "Cloud Reviewer"
-  }
-];
 
 const createToken = (user) => {
   const payload = {
@@ -126,27 +112,70 @@ router.get("/health", (req, res) => {
   });
 });
 
-router.post("/auth/login", (req, res) => {
-  const { email, password } = req.body || {};
-  const user = demoUsers.find((entry) => entry.email === email && entry.password === password);
-
-  if (!user) {
-    return res.status(401).json({ message: "Invalid email or password." });
-  }
-
-  const token = createToken(user);
-  res.json({
-    token,
-    user: {
-      email: user.email,
-      name: user.name,
-      role: user.role
+router.post("/auth/login", async (req, res, next) => {
+  try {
+    const { email, password } = req.body || {};
+    const user = await findUserByEmail(email);
+    if (!user || user.password !== String(password || "")) {
+      return res.status(401).json({ message: "Invalid email or password." });
     }
-  });
+
+    const token = createToken(user);
+    res.json({
+      token,
+      user: sanitizeUser(user)
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 router.get("/auth/me", requireAuth, (req, res) => {
   res.json({ user: req.user });
+});
+
+router.post("/auth/register", async (req, res, next) => {
+  try {
+    const { name, email, password, role } = req.body || {};
+
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ message: "Name is required." });
+    }
+    if (!email || !String(email).trim()) {
+      return res.status(400).json({ message: "Email is required." });
+    }
+    if (!password || String(password).trim().length < 4) {
+      return res.status(400).json({ message: "Password must be at least 4 characters." });
+    }
+
+    const safeUser = await registerUser({
+      name,
+      email,
+      password,
+      role
+    });
+
+    const token = createToken(safeUser);
+    res.status(201).json({
+      message: "Account created successfully.",
+      token,
+      user: safeUser
+    });
+  } catch (error) {
+    if (error.message?.includes("already exists")) {
+      return res.status(409).json({ message: error.message });
+    }
+    next(error);
+  }
+});
+
+router.get("/auth/users", requireAuth, async (req, res, next) => {
+  try {
+    const users = await listUsers();
+    res.json({ users });
+  } catch (error) {
+    next(error);
+  }
 });
 
 router.get("/sample", async (req, res, next) => {

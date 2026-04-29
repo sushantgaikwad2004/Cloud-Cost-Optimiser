@@ -1,0 +1,23 @@
+[
+  {
+    "email": "admin@beproject.com",
+    "password": "admin123",
+    "name": "Aarav Sharma",
+    "role": "FinOps Lead",
+    "createdAt": "2026-01-01T00:00:00.000Z"
+  },
+  {
+    "email": "reviewer@beproject.com",
+    "password": "review123",
+    "name": "Nisha Verma",
+    "role": "Cloud Reviewer",
+    "createdAt": "2026-01-01T00:00:00.000Z"
+  },
+  {
+    "email": "sushant@gmail.com",
+    "password": "1234",
+    "name": "Sushant Gaikwad",
+    "role": "Admin",
+    "createdAt": "2026-04-21T10:56:31.942Z"
+  }
+]

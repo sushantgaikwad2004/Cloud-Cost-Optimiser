@@ -1747,3 +1747,26 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
+/* Auth mode switch for multi-user local accounts */
+.auth-mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.mode-btn {
+  border: 1px solid #c6d9f0;
+  background: #f4f8ff;
+  color: #23537f;
+  border-radius: 999px;
+  padding: 8px 10px;
+  font-weight: 600;
+}
+
+.mode-btn.active {
+  border-color: #2b78cb;
+  background: linear-gradient(130deg, #215ea8, #2e78cf);
+  color: #ffffff;
+}

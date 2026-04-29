@@ -139,7 +139,7 @@ const TopologyMap = ({ services, crisisActive }) => {
   );
 };
 
-const LoginScreen = ({ form, onChange, onSubmit, loading, error }) => (
+const LoginScreen = ({ form, mode, onModeChange, onChange, onSubmit, loading, error }) => (
   <main className="login-page">
     <section className="login-wrap">
       <article className="login-info">
@@ -157,9 +157,51 @@ const LoginScreen = ({ form, onChange, onSubmit, loading, error }) => (
       </article>
 
       <article className="login-card">
-        <h2>Sign In</h2>
-        <p>Use demo credentials to access the dashboard.</p>
+        <h2>{mode === "login" ? "Sign In" : "Create Account"}</h2>
+        <p>
+          {mode === "login"
+            ? "Use your account credentials to access the dashboard."
+            : "Create a local account for your teammate without any database setup."}
+        </p>
+        <div className="auth-mode-switch">
+          <button
+            type="button"
+            className={mode === "login" ? "mode-btn active" : "mode-btn"}
+            onClick={() => onModeChange("login")}
+          >
+            Sign In
+          </button>
+          <button
+            type="button"
+            className={mode === "register" ? "mode-btn active" : "mode-btn"}
+            onClick={() => onModeChange("register")}
+          >
+            Create Account
+          </button>
+        </div>
         <form onSubmit={onSubmit} className="login-form">
+          {mode === "register" && (
+            <>
+              <label>
+                Full Name
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(event) => onChange("name", event.target.value)}
+                  required
+                />
+              </label>
+              <label>
+                Role
+                <input
+                  type="text"
+                  value={form.role}
+                  onChange={(event) => onChange("role", event.target.value)}
+                  placeholder="FinOps Analyst"
+                />
+              </label>
+            </>
+          )}
           <label>
             Email
             <input
@@ -180,11 +222,11 @@ const LoginScreen = ({ form, onChange, onSubmit, loading, error }) => (
           </label>
           {error && <p className="error-text">{error}</p>}
           <button type="submit" disabled={loading}>
-            {loading ? "Signing in..." : "Sign In"}
+            {loading ? (mode === "login" ? "Signing in..." : "Creating account...") : mode === "login" ? "Sign In" : "Create Account"}
           </button>
         </form>
         <p className="demo-note">
-          Demo: <strong>admin@beproject.com</strong> / <strong>admin123</strong>
+          Demo account: <strong>admin@beproject.com</strong> / <strong>admin123</strong>
         </p>
       </article>
     </section>
@@ -196,7 +238,10 @@ function App() {
     token: localStorage.getItem(TOKEN_STORAGE_KEY) || "",
     user: safeParse(localStorage.getItem(USER_STORAGE_KEY))
   }));
+  const [authMode, setAuthMode] = useState("login");
   const [loginForm, setLoginForm] = useState({
+    name: "",
+    role: "Team Member",
     email: "admin@beproject.com",
     password: "admin123"
   });
@@ -419,30 +464,65 @@ function App() {
     }
   }, [timeFrameIndex, timeFrames.length]);
 
-  const onLogin = async (event) => {
+  const switchAuthMode = (mode) => {
+    setAuthMode(mode);
+    setLoginError("");
+
+    if (mode === "login") {
+      setLoginForm((prev) => ({
+        ...prev,
+        email: "admin@beproject.com",
+        password: "admin123"
+      }));
+    } else {
+      setLoginForm((prev) => ({
+        ...prev,
+        name: "",
+        role: "Team Member",
+        email: "",
+        password: ""
+      }));
+    }
+  };
+
+  const onAuthSubmit = async (event) => {
     event.preventDefault();
     setLoginLoading(true);
     setLoginError("");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      const isLogin = authMode === "login";
+      const endpoint = isLogin ? "/api/auth/login" : "/api/auth/register";
+      const payload = isLogin
+        ? {
+            email: loginForm.email,
+            password: loginForm.password
+          }
+        : {
+            name: loginForm.name,
+            role: loginForm.role,
+            email: loginForm.email,
+            password: loginForm.password
+          };
+
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify(loginForm)
+        body: JSON.stringify(payload)
       });
 
       const result = await response.json();
       if (!response.ok) {
-        throw new Error(result.message || "Login failed.");
+        throw new Error(result.message || (isLogin ? "Login failed." : "Registration failed."));
       }
 
       localStorage.setItem(TOKEN_STORAGE_KEY, result.token);
       localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(result.user));
       setSession({ token: result.token, user: result.user });
     } catch (err) {
-      setLoginError(err.message || "Unable to sign in.");
+      setLoginError(err.message || "Unable to complete authentication.");
     } finally {
       setLoginLoading(false);
     }
@@ -807,8 +887,10 @@ function App() {
     return (
       <LoginScreen
         form={loginForm}
+        mode={authMode}
+        onModeChange={switchAuthMode}
         onChange={(field, value) => setLoginForm((prev) => ({ ...prev, [field]: value }))}
-        onSubmit={onLogin}
+        onSubmit={onAuthSubmit}
         loading={loginLoading}
         error={loginError}
       />

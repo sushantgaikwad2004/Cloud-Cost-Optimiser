@@ -50,20 +50,7 @@
   </style>
 </head>
 <body>
-  <section id="loginWrap" class="login">
-    <article class="login-card">
-      <h2>ShopSphere Merchant Login</h2>
-      <p>Login to run real shopper actions linked to your optimization dashboard.</p>
-      <form id="loginForm">
-        <label>Email<input type="email" id="email" value="admin@beproject.com" required /></label>
-        <label>Password<input type="password" id="password" value="admin123" required /></label>
-        <button class="btn btn-main" id="loginBtn" type="submit">Sign In</button>
-      </form>
-      <p id="loginError" class="note"></p>
-    </article>
-  </section>
-
-  <section id="appWrap" class="hidden">
+  <section id="appWrap">
     <div class="announce">Live Storefront Demo: customer actions here trigger real-time cloud optimization updates.</div>
     <div class="shell">
       <header class="header">
@@ -120,12 +107,8 @@
     const API_BASE_URL = localStorage.getItem("cco_api_base_url") || "http://localhost:5000";
     const TOKEN_KEY = "cco_demo_token", USER_KEY = "cco_demo_user";
     let token = localStorage.getItem(TOKEN_KEY) || "", stream = null, cartCount = 0, cartValue = 0;
-    const loginWrap = document.getElementById("loginWrap"), appWrap = document.getElementById("appWrap"), loginForm = document.getElementById("loginForm");
-    const loginError = document.getElementById("loginError"), streamState = document.getElementById("streamState"), activityMessage = document.getElementById("activityMessage");
-    const loginBtn = document.getElementById("loginBtn");
+    const streamState = document.getElementById("streamState"), activityMessage = document.getElementById("activityMessage");
     const volumeRange = document.getElementById("volumeRange"), volumeText = document.getElementById("volumeText"), searchForm = document.getElementById("searchForm"), searchInput = document.getElementById("searchInput");
-    const showLogin = () => { loginWrap.classList.remove("hidden"); appWrap.classList.add("hidden"); window.scrollTo(0, 0); };
-    const showApp = () => { loginWrap.classList.add("hidden"); appWrap.classList.remove("hidden"); window.scrollTo(0, 0); };
     const authHeaders = () => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" });
     const parseResponse = async (res) => {
       const raw = await res.text();
@@ -140,15 +123,36 @@
     const renderAdvisor = (cards = []) => { const box = document.getElementById("advisorList"); box.innerHTML = ""; cards.slice(0,4).forEach((c) => { const el = document.createElement("article"); el.className = "tip"; el.innerHTML = `<header><strong>${c.title}</strong><span class=\"sev ${(c.severity||"Low").toLowerCase()}\">${c.severity}</span></header><p>${c.recommendation}</p>`; box.appendChild(el); }); };
     const renderFeed = (events = []) => { const body = document.getElementById("feedBody"); body.innerHTML = ""; events.filter((e) => e.source === "website-demo").slice(0,8).forEach((e) => { const row = document.createElement("tr"); row.innerHTML = `<td>${new Date(e.timestamp).toLocaleTimeString()}</td><td>${e.label}</td><td>${e.intensity}x</td><td>${formatUSD(e.costDelta)}</td>`; body.appendChild(row); }); };
     const renderState = (analysis, simulator) => { const m = simulator.websiteMetrics || {}; document.getElementById("metricUsers").textContent = m.activeUsers ?? 0; document.getElementById("metricViews").textContent = m.pageViews ?? 0; document.getElementById("metricOrders").textContent = m.ordersPlaced ?? 0; document.getElementById("metricCart").textContent = m.cartAdds ?? 0; const r = analysis.runtimeHealth || {}; document.getElementById("healthStatus").textContent = `Status: ${r.overall || "Unknown"}`; document.getElementById("healthReq").textContent = `Requests/min: ${r.totalRequestsPerMin || 0}`; document.getElementById("healthLatency").textContent = `Latency: ${r.avgLatencyMs || 0} ms`; document.getElementById("healthError").textContent = `Error Rate: ${r.avgErrorRate || 0}%`; renderAdvisor((analysis.websiteAdvisor && analysis.websiteAdvisor.cards) || []); renderFeed(simulator.activityLog || []); };
-    const fetchState = async () => { const res = await fetch(`${API_BASE_URL}/api/website/state`, { headers: authHeaders() }); if (res.status === 401) { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY); token = ""; showLogin(); throw new Error("Session expired. Login again."); } const d = await parseResponse(res); if (!res.ok) throw new Error(d.message || "Could not fetch website state."); renderState(d.analysis, d.simulator); };
-    const runActivity = async (activityType, details = {}) => { toast("Applying user activity..."); const res = await fetch(`${API_BASE_URL}/api/website/activity`, { method: "POST", headers: authHeaders(), body: JSON.stringify({ activityType, volume: Number(volumeRange.value || 1), details: { channel: "client-storefront", ...details } }) }); const out = await parseResponse(res); if (!res.ok) return toast(out.message || "Action failed."); renderState(out.analysis, out.simulator); toast(`Action recorded. Cloud cost delta: ${formatUSD(out.costDelta)}`); };
-    const connectStream = () => { if (!token) return; if (stream) stream.close(); stream = new EventSource(`${API_BASE_URL}/api/stream?token=${encodeURIComponent(token)}`); setRealtime("Connecting"); stream.addEventListener("connected", () => setRealtime("Live")); stream.addEventListener("analysis-update", (ev) => { try { const payload = JSON.parse(ev.data); renderState(payload.analysis, payload.simulator); setRealtime("Live"); } catch { setRealtime("Data Error"); } }); stream.onerror = () => setRealtime("Reconnecting"); };
     const login = async (email, password) => { const res = await fetch(`${API_BASE_URL}/api/auth/login`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) }); const d = await parseResponse(res); if (!res.ok) throw new Error(d.message || "Login failed"); token = d.token; localStorage.setItem(TOKEN_KEY, d.token); localStorage.setItem(USER_KEY, JSON.stringify(d.user)); };
-    loginForm.addEventListener("submit", async (e) => { e.preventDefault(); loginError.textContent = ""; loginBtn.disabled = true; loginBtn.textContent = "Signing In..."; try { await login(document.getElementById("email").value, document.getElementById("password").value); showApp(); await fetchState(); connectStream(); } catch (err) { loginError.textContent = err.message || "Login error. Ensure backend is running on http://localhost:5000"; } finally { loginBtn.disabled = false; loginBtn.textContent = "Sign In"; } });
+    const ensureToken = async () => {
+      if (token) return true;
+      try {
+        await login("admin@beproject.com", "admin123");
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    const fetchState = async (allowRetry = true) => {
+      const tokenReady = await ensureToken();
+      if (!tokenReady) throw new Error("Unable to auto-login demo user. Please login in dashboard first.");
+      const res = await fetch(`${API_BASE_URL}/api/website/state`, { headers: authHeaders() });
+      if (res.status === 401 && allowRetry) {
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(USER_KEY);
+        token = "";
+        return fetchState(false);
+      }
+      const d = await parseResponse(res);
+      if (!res.ok) throw new Error(d.message || "Could not fetch website state.");
+      renderState(d.analysis, d.simulator);
+    };
+    const runActivity = async (activityType, details = {}) => { const tokenReady = await ensureToken(); if (!tokenReady) return toast("Cannot connect to backend."); toast("Applying user activity..."); const res = await fetch(`${API_BASE_URL}/api/website/activity`, { method: "POST", headers: authHeaders(), body: JSON.stringify({ activityType, volume: Number(volumeRange.value || 1), details: { channel: "client-storefront", ...details } }) }); const out = await parseResponse(res); if (!res.ok) return toast(out.message || "Action failed."); renderState(out.analysis, out.simulator); toast(`Action recorded. Cloud cost delta: ${formatUSD(out.costDelta)}`); };
+    const connectStream = async () => { const tokenReady = await ensureToken(); if (!tokenReady) return; if (stream) stream.close(); stream = new EventSource(`${API_BASE_URL}/api/stream?token=${encodeURIComponent(token)}`); setRealtime("Connecting"); stream.addEventListener("connected", () => setRealtime("Live")); stream.addEventListener("analysis-update", (ev) => { try { const payload = JSON.parse(ev.data); renderState(payload.analysis, payload.simulator); setRealtime("Live"); } catch { setRealtime("Data Error"); } }); stream.onerror = () => setRealtime("Reconnecting"); };
     volumeRange.addEventListener("input", () => volumeText.textContent = `${volumeRange.value}x`);
     searchForm.addEventListener("submit", async (e) => { e.preventDefault(); await runActivity("SEARCH_PRODUCTS", { query: searchInput.value || "general" }); });
     document.querySelectorAll("[data-activity]").forEach((btn) => { btn.addEventListener("click", async () => { const t = btn.dataset.activity; bumpCart(t, btn); await runActivity(t, { context: btn.closest(".item")?.dataset?.product || "storefront" }); }); });
-    (async () => { renderCart(); try { if (!token) return showLogin(); showApp(); await fetchState(); connectStream(); } catch (err) { showLogin(); loginError.textContent = err.message || "Unable to load website demo."; } })();
+    (async () => { renderCart(); try { await fetchState(); await connectStream(); } catch (err) { toast(err.message || "Unable to load website demo."); setRealtime("Offline"); } })();
   </script>
 </body>
 </html>
